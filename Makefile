@@ -19,3 +19,6 @@ conda:
 
 render-docs:
 	$(run) python3 scripts/render_env_docs.py
+
+claude:
+	claude --resume $(conda_name) || claude --name $(conda_name)
