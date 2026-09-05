@@ -12,6 +12,19 @@ services:
       PAPERMERGE__REDIS__URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       PAPERMERGE__OCR__LANG_CODES: "eng"
       PAPERMERGE__OCR__DEFAULT_LANG_CODE: "eng"
+      # OIDC (Authentik) -- optional, only takes effect once all five are set.
+      # auth_server_app runs inside this same image (via supervisord) and reads
+      # these directly; there is no separate compose service for it.
+      # Values must come from the Authentik OAuth2/OIDC Provider + Application
+      # object -- these are real endpoint URLs (token/userinfo/introspect), not
+      # an issuer URL, since papermerge does not do OIDC discovery.
+      # Authorized redirect URI to register in Authentik must be exactly:
+      #   <http|https>://<your domain>/oidc/callback
+      PAPERMERGE__AUTH__OIDC_CLIENT_ID: ${PAPERMERGE_OIDC_CLIENT_ID:-}
+      PAPERMERGE__AUTH__OIDC_CLIENT_SECRET: ${PAPERMERGE_OIDC_CLIENT_SECRET:-}
+      PAPERMERGE__AUTH__OIDC_ACCESS_TOKEN_URL: ${PAPERMERGE_OIDC_ACCESS_TOKEN_URL:-}
+      PAPERMERGE__AUTH__OIDC_USER_INFO_URL: ${PAPERMERGE_OIDC_USER_INFO_URL:-}
+      PAPERMERGE__AUTH__OIDC_INTROSPECT_URL: ${PAPERMERGE_OIDC_INTROSPECT_URL:-}
     volumes:
       - media_root:/var/media/pmg
     ports:
