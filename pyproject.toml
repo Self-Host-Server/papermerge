@@ -1,0 +1,248 @@
+# =============================================================================
+# GIT-CLIFF — PR description generator
+# =============================================================================
+
+[tool.git-cliff.changelog]
+header = ""
+body = """
+## Summary
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }}
+{%- endfor %}
+{% endfor %}
+
+## Test plan
+
+- [ ] Review the changes above
+- [ ] Existing tests pass
+"""
+trim = true
+
+[tool.git-cliff.git]
+conventional_commits = true
+filter_unconventional = false
+commit_parsers = [
+  { message = "^feat", group = "✨ Features" },
+  { message = "^fix", group = "🐛 Bug Fixes" },
+  { message = "^docs", group = "📚 Documentation" },
+  { message = "^refactor", group = "♻️ Refactoring" },
+  { message = "^test", group = "🧪 Tests" },
+  { message = "^perf", group = "⚡ Performance" },
+  { message = "^chore", group = "🔧 Chores" },
+  { message = "^lint", group = "🔧 Chores" },
+  { message = ".*", group = "📝 Changes" },
+]
+
+# =============================================================================
+# RUFF — Python linter & formatter
+# =============================================================================
+
+[tool.ruff]
+line-length = 180
+exclude = ["__pycache__", "venv", ".tox", ".venv", "tests.py", "env"]
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+ignore = ["E203", "E501", "E701", "E401", "B008"]
+
+
+# =============================================================================
+# TOX — Test & task runner
+# =============================================================================
+
+# Default envs run when you type `tox` with no arguments
+[tool.tox]
+env_list = [
+  "lint",
+  "txt-lint",
+  "format",
+  "prettier",
+  "toml-lint",
+  "duplicate-code",
+]
+work_dir = "/tmp/.tox"
+
+# Shared base config inherited by all envs
+[tool.tox.env_run_base]
+pass_env = ["PATH"]
+set_env = { VIRTUALENV_OVERRIDE_APP_DATA = "{work_dir}/.virtualenv", PRETTIER_GLOB = "**/*.{css,js,html,json,yml,yaml,md}" }
+
+# --- Linting ----------------------------------------------------------------
+
+[tool.tox.env.lint]
+skip_install = true
+base_python = "python3"
+deps = ["ruff"]
+commands = [["ruff", "check", "--no-cache", "."]]
+
+[tool.tox.env."txt-lint"]
+skip_install = true
+allowlist_externals = ["npx", "npm"]
+commands = [
+  [
+    "npm",
+    "install",
+    "--save-dev",
+    "textlint",
+    "textlint-rule-common-misspellings",
+    "textlint-rule-write-good",
+  ],
+  [
+    "npx",
+    "textlint",
+    "--rule",
+    "common-misspellings",
+    "--rule",
+    "write-good",
+    "**/*.txt",
+  ],
+]
+
+# [tool.tox.env."combined-imports-check"]
+# skip_install = true
+# deps = []
+# commands = [["python3", "Python/scripts/combined_imports_check.py"]]
+
+# [tool.tox.env."no-classes-check"]
+# skip_install = true
+# deps = []
+# commands = [["python3", "Python/scripts/no_classes_check.py"]]
+
+# --- Docs ---------------------------------------------------------------
+
+# Renders *.md.template files (see scripts/render_env_docs.py), substituting
+# ${VAR} / ${VAR:-default} / ${VAR:?message} references from .env, same
+# syntax as compose.yml. Not part of the "all"/"github" chains -- run it
+# explicitly (or via `make render-docs`) since it writes files and its
+# output can embed values from .env that shouldn't be committed if they're
+# secrets. Safe to leave enabled even in repos with no *.md.template files;
+# it's a no-op then.
+[tool.tox.env."render-docs"]
+skip_install = true
+deps = []
+commands = [["python3", "scripts/render_env_docs.py"]]
+
+# --- Formatting -------------------------------------------------------------
+
+[tool.tox.env.format]
+skip_install = true
+deps = ["ruff", "ty"]
+allowlist_externals = ["npx"]
+commands = [
+  # [
+  #   "python3",
+  #   "Python/scripts/combined_imports_check.py",
+  #   "--fix",
+  # ],
+  ["ruff", "format", "--no-cache", "--verbose", "."],
+  ["ruff", "check", "--no-cache", "--fix", "--verbose", "."],
+  ["npx", "prettier", "--write", "--log-level", "log", "{env:PRETTIER_GLOB}"],
+  ["npx", "@taplo/cli", "fmt", "--no-auto-config", "**/*.toml"],
+]
+
+# [tool.tox.env.scss]
+# skip_install = true
+# allowlist_externals = ["npx"]
+# commands = [["npx", "sass", "--no-source-map", "static/scss:static/css"]]
+
+[tool.tox.env.prettier]
+skip_install = true
+allowlist_externals = ["npx"]
+commands = [["npx", "prettier", "--check", "{env:PRETTIER_GLOB}"]]
+
+[tool.tox.env."toml-lint"]
+skip_install = true
+allowlist_externals = ["npx"]
+commands = [
+  [
+    "npx",
+    "@taplo/cli",
+    "fmt",
+    "--check",
+    "--no-auto-config",
+    "**/*.toml",
+  ],
+  [
+    "npx",
+    "@taplo/cli",
+    "lint",
+    "--no-auto-config",
+    "**/*.toml",
+  ],
+]
+
+# --- Duplication --------------------------------------------------------
+
+# Zero-tolerance duplicate-code check (jscpd, config in .jscpd.json). Real
+# duplication found should be refactored into a shared file the callers
+# source/import, not waved off by raising the threshold.
+[tool.tox.env."duplicate-code"]
+skip_install = true
+allowlist_externals = ["npx", "npm"]
+commands = [["npm", "install", "--save-dev", "jscpd"], ["npx", "jscpd", "."]]
+
+# --- Security -----------------------------------------------------------
+
+[tool.tox.env."secret-detection"]
+skip_install = true
+allowlist_externals = ["docker"]
+commands = [
+  [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    "{toxinidir}:/repo",
+    "trufflesecurity/trufflehog:latest",
+    "git",
+    "file:///repo",
+    "--results=verified,unverified,unknown",
+    "--fail",
+  ],
+]
+
+# --- Aggregate (CI) ---------------------------------------------------------
+
+# Runs the full CI chain: lint → txt-lint → prettier → toml-lint → duplicate-code
+[tool.tox.env.github]
+skip_install = true
+deps = []
+allowlist_externals = ["tox"]
+commands = [
+  #   [
+  #     "tox",
+  #     "-e",
+  #     "no-classes-check",
+  #   ],
+  ["tox", "-e", "lint"],
+  ["tox", "-e", "txt-lint"],
+  ["tox", "-e", "prettier"],
+  ["tox", "-e", "toml-lint"],
+  ["tox", "-e", "duplicate-code"],
+  # ["tox", "-e", "combined-imports-check"],
+]
+
+# Runs format then the full github chain
+[tool.tox.env.all]
+skip_install = true
+deps = []
+allowlist_externals = ["tox"]
+commands = [
+  [
+    "tox",
+    "-e",
+    "format",
+  ],
+  [
+    "tox",
+    "-e",
+    "github",
+  ],
+  [
+    "tox",
+    "-e",
+    "secret-detection",
+  ],
+]
