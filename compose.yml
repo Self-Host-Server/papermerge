@@ -1,6 +1,6 @@
 services:
   webapp:
-    image: papermerge/papermerge:3.5.3
+    image: docker.io/papermerge/papermerge:3.5.3
     restart: unless-stopped
     environment:
       PAPERMERGE__SECURITY__SECRET_KEY: ${PAPERMERGE_SECRET_KEY}
@@ -25,7 +25,7 @@ services:
         condition: service_healthy
 
   ocr_worker:
-    image: papermerge/ocrworker:0.3.1
+    image: docker.io/papermerge/ocrworker:0.3.1
     restart: unless-stopped
     command: worker
     environment:
@@ -42,7 +42,7 @@ services:
         condition: service_healthy
 
   i3worker:
-    image: papermerge/i3worker:0.3
+    image: docker.io/papermerge/i3worker:0.3
     restart: unless-stopped
     command: worker
     environment:
@@ -59,7 +59,7 @@ services:
         condition: service_healthy
 
   db:
-    image: postgres:16.1
+    image: docker.io/library/postgres:16.1
     restart: unless-stopped
     volumes:
       - pg_data:/var/lib/postgresql/data/
@@ -75,7 +75,7 @@ services:
       start_period: 10s
 
   redis:
-    image: redis:7.2
+    image: docker.io/library/redis:7.2
     restart: unless-stopped
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     environment:
@@ -92,7 +92,7 @@ services:
       start_period: 10s
 
   solr:
-    image: solr:9.7
+    image: docker.io/library/solr:9.7
     restart: unless-stopped
     volumes:
       - solr_data:/var/solr
@@ -100,12 +100,14 @@ services:
       - solr-precreate
       - pmg
     healthcheck:
-      # NOT FULLY VERIFIED against this exact image tag -- `solr healthcheck`
-      # is a real subcommand the official image ships for this purpose, but
-      # confirm it actually works here before trusting it gates readiness.
-      # Fallback if it doesn't exist in this tag:
-      # curl -f http://localhost:8983/solr/admin/cores?action=STATUS
-      test: ["CMD-SHELL", "solr healthcheck -c pmg || exit 1"]
+      # `solr healthcheck -c pmg` assumes SolrCloud and times out waiting on
+      # ZooKeeper (verified against solr:9.7 -- this stack runs standalone
+      # Solr, no ZK). Use the admin cores API instead.
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf 'http://localhost:8983/solr/admin/cores?action=STATUS' || exit 1",
+        ]
       interval: 10s
       timeout: 10s
       retries: 5
