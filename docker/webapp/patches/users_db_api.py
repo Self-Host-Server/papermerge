@@ -52,9 +52,7 @@ async def get_user(db_session: AsyncSession, user_id_or_username: str) -> schema
     return model_user
 
 
-async def get_user_group_homes(
-    db_session: AsyncSession, user_id: uuid.UUID
-) -> Tuple[list[schema.UserHome] | None, str | None]:
+async def get_user_group_homes(db_session: AsyncSession, user_id: uuid.UUID) -> Tuple[list[schema.UserHome] | None, str | None]:
     """Gets user group homes
 
     SELECT g.name, g.home_folder_id
@@ -63,12 +61,8 @@ async def get_user_group_homes(
     WHERE ug.user_id = <user_id>
     """
     stmt = (
-        select(
-            orm.Group.name, orm.Group.id, orm.Group.home_folder_id
-        )  # Selecting only `Group.name` (since `home_folder_id` isn't defined in Group)
-        .join(
-            user_groups_association, user_groups_association.c.group_id == orm.Group.id
-        )
+        select(orm.Group.name, orm.Group.id, orm.Group.home_folder_id)  # Selecting only `Group.name` (since `home_folder_id` isn't defined in Group)
+        .join(user_groups_association, user_groups_association.c.group_id == orm.Group.id)
         .where(
             user_groups_association.c.user_id == user_id,
             orm.Group.home_folder_id != None,  # noqa: E711 -- SQLAlchemy column comparison, not a Python identity check
@@ -79,17 +73,13 @@ async def get_user_group_homes(
 
     models = []
     for group_name, group_id, home_folder_id in results:
-        home = schema.UserHome(
-            group_name=group_name, group_id=group_id, home_id=home_folder_id
-        )
+        home = schema.UserHome(group_name=group_name, group_id=group_id, home_id=home_folder_id)
         models.append(schema.UserHome.model_validate(home))
 
     return models, None
 
 
-async def get_user_group_inboxes(
-    db_session: AsyncSession, user_id: uuid.UUID
-) -> Tuple[list[schema.UserHome] | None, str | None]:
+async def get_user_group_inboxes(db_session: AsyncSession, user_id: uuid.UUID) -> Tuple[list[schema.UserHome] | None, str | None]:
     """Gets user group inboxes
 
     SELECT g.name, g.inbox_folder_id
@@ -99,9 +89,7 @@ async def get_user_group_inboxes(
     """
     stmt = (
         select(orm.Group.name, orm.Group.id, orm.Group.inbox_folder_id)
-        .join(
-            user_groups_association, user_groups_association.c.group_id == orm.Group.id
-        )
+        .join(user_groups_association, user_groups_association.c.group_id == orm.Group.id)
         .where(
             user_groups_association.c.user_id == user_id,
             orm.Group.inbox_folder_id != None,  # noqa: E711 -- SQLAlchemy column comparison, not a Python identity check
@@ -112,21 +100,14 @@ async def get_user_group_inboxes(
 
     models = []
     for group_name, group_id, inbox_folder_id in results:
-        home = schema.UserInbox(
-            group_name=group_name, group_id=group_id, inbox_id=inbox_folder_id
-        )
+        home = schema.UserInbox(group_name=group_name, group_id=group_id, inbox_id=inbox_folder_id)
         models.append(schema.UserInbox.model_validate(home))
 
     return models, None
 
 
-async def get_user_details(
-    db_session: AsyncSession, user_id: uuid.UUID
-) -> Tuple[schema.UserDetails | None, err_schema.Error | None]:
-    stmt = select(User).options(
-        selectinload(User.roles).selectinload(orm.Role.permissions),
-        selectinload(orm.User.groups)
-    ).where(User.id == user_id)
+async def get_user_details(db_session: AsyncSession, user_id: uuid.UUID) -> Tuple[schema.UserDetails | None, err_schema.Error | None]:
+    stmt = select(User).options(selectinload(User.roles).selectinload(orm.Role.permissions), selectinload(orm.User.groups)).where(User.id == user_id)
 
     params = {"id": user_id}
 
@@ -161,9 +142,7 @@ async def get_user_details(
     return model_user, None
 
 
-async def get_users(
-    db_session: AsyncSession, *, page_size: int, page_number: int
-) -> schema.PaginatedResponse[schema.User]:
+async def get_users(db_session: AsyncSession, *, page_size: int, page_number: int) -> schema.PaginatedResponse[schema.User]:
     stmt_total_users = select(func.count(orm.User.id))
     total_users = (await db_session.execute(stmt_total_users)).scalar()
 
@@ -175,9 +154,7 @@ async def get_users(
 
     total_pages = math.ceil(total_users / page_size)
 
-    return schema.PaginatedResponse[schema.User](
-        items=items, page_size=page_size, page_number=page_number, num_pages=total_pages
-    )
+    return schema.PaginatedResponse[schema.User](items=items, page_size=page_size, page_number=page_number, num_pages=total_pages)
 
 
 async def get_users_without_pagination(db_session: AsyncSession) -> list[schema.User]:
@@ -187,6 +164,7 @@ async def get_users_without_pagination(db_session: AsyncSession) -> list[schema.
     items = [schema.User.model_validate(db_user) for db_user in db_users]
 
     return items
+
 
 async def create_user(
     db_session: AsyncSession,
@@ -227,9 +205,7 @@ async def create_user(
         groups = []
         if group_ids:
             # Fetch groups by IDs
-            groups_result = await db_session.execute(
-                select(orm.Group).where(orm.Group.id.in_(group_ids))
-            )
+            groups_result = await db_session.execute(select(orm.Group).where(orm.Group.id.in_(group_ids)))
             groups = groups_result.scalars().all()
 
             # Check if all requested groups were found
@@ -242,9 +218,7 @@ async def create_user(
         roles = []
         if role_ids:
             # Fetch roles by IDs
-            roles_result = await db_session.execute(
-                select(orm.Role).where(orm.Role.id.in_(role_ids))
-            )
+            roles_result = await db_session.execute(select(orm.Role).where(orm.Role.id.in_(role_ids)))
             roles = roles_result.scalars().all()
 
             # Check if all requested roles were found
@@ -263,7 +237,7 @@ async def create_user(
             home_folder_id=home_folder_id,  # Set immediately
             inbox_folder_id=inbox_folder_id,  # Set immediately
         )
-            # Set relationships before adding to session
+        # Set relationships before adding to session
         if groups:
             user.groups = list(groups)
         if roles:
@@ -280,18 +254,16 @@ async def create_user(
         return None, err_schema.Error(messages=[str(e)])
 
 
-async def update_user(
-    db_session: AsyncSession, user_id: uuid.UUID, attrs: schema.UpdateUser
-) -> Tuple[schema.UserDetails | None, err_schema.Error | None]:
+async def update_user(db_session: AsyncSession, user_id: uuid.UUID, attrs: schema.UpdateUser) -> Tuple[schema.UserDetails | None, err_schema.Error | None]:
     groups = []
     roles = []
     scopes = set()
 
-    stmt = select(orm.User).options(
-        selectinload(orm.User.roles),
-        selectinload(orm.User.roles).selectinload(orm.Role.permissions),
-        selectinload(orm.User.groups)
-    ).where(orm.User.id == user_id)
+    stmt = (
+        select(orm.User)
+        .options(selectinload(orm.User.roles), selectinload(orm.User.roles).selectinload(orm.Role.permissions), selectinload(orm.User.groups))
+        .where(orm.User.id == user_id)
+    )
 
     user = (await db_session.execute(stmt)).scalar_one()
     if attrs.username is not None:
@@ -326,11 +298,11 @@ async def update_user(
         error = err_schema.Error(messages=[str(e)])
         return None, error
 
-    stmt = select(orm.User).options(
-        selectinload(orm.User.roles),
-        selectinload(orm.User.roles).selectinload(orm.Role.permissions),
-        selectinload(orm.User.groups)
-    ).where(orm.User.id == user_id)
+    stmt = (
+        select(orm.User)
+        .options(selectinload(orm.User.roles), selectinload(orm.User.roles).selectinload(orm.Role.permissions), selectinload(orm.User.groups))
+        .where(orm.User.id == user_id)
+    )
 
     user = (await db_session.execute(stmt)).scalar_one()
 
@@ -338,11 +310,7 @@ async def update_user(
         for perm in list(role.permissions):
             scopes.add(perm.codename)
 
-    stmt = select(orm.User).options(
-        selectinload(orm.User.roles), selectinload(orm.User.groups)
-    ).where(
-        orm.User.id == user_id
-    )
+    stmt = select(orm.User).options(selectinload(orm.User.roles), selectinload(orm.User.groups)).where(orm.User.id == user_id)
     db_user = (await db_session.execute(stmt)).scalar_one()
 
     model_user = schema.UserDetails.model_validate(db_user)
@@ -350,9 +318,7 @@ async def update_user(
     return model_user, None
 
 
-async def get_user_scopes_from_roles(
-    db_session: AsyncSession, user_id: uuid.UUID, roles: list[str]
-) -> list[str]:
+async def get_user_scopes_from_roles(db_session: AsyncSession, user_id: uuid.UUID, roles: list[str]) -> list[str]:
     db_user = await db_session.get(User, user_id)
 
     if db_user is None:
@@ -361,11 +327,7 @@ async def get_user_scopes_from_roles(
 
     lowercase_roles = [role.lower() for role in roles]
 
-    db_roles = (await db_session.scalars(
-        select(orm.Role).options(
-            selectinload(orm.Role.permissions)
-        ).where(func.lower(orm.Role.name).in_(lowercase_roles))
-    )).all()
+    db_roles = (await db_session.scalars(select(orm.Role).options(selectinload(orm.Role.permissions)).where(func.lower(orm.Role.name).in_(lowercase_roles)))).all()
 
     if db_user.is_superuser:
         # superuser has all permissions (permission = scope)
@@ -401,11 +363,8 @@ async def get_users_count(db_session: AsyncSession) -> int:
     return (await db_session.execute(stmt)).scalar()
 
 
-async def change_password(
-    db_session: AsyncSession, user_id: uuid.UUID, password: str
-) -> Tuple[schema.User | None, err_schema.Error | None]:
-    stmt = select(orm.User).options(selectinload(orm.User.roles), selectinload(orm.User.groups)).where(
-        orm.User.id == user_id)
+async def change_password(db_session: AsyncSession, user_id: uuid.UUID, password: str) -> Tuple[schema.User | None, err_schema.Error | None]:
+    stmt = select(orm.User).options(selectinload(orm.User.roles), selectinload(orm.User.groups)).where(orm.User.id == user_id)
     db_user = (await db_session.execute(stmt)).scalar()
     db_user.password = pbkdf2_sha256.hash(password)
 
@@ -421,9 +380,7 @@ async def change_password(
     return user, None
 
 
-async def user_belongs_to(
-    db_session: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID
-) -> bool:
+async def user_belongs_to(db_session: AsyncSession, group_id: uuid.UUID, user_id: uuid.UUID) -> bool:
     """Does user belong to group?"""
     stmt = (
         select(func.count())

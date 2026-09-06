@@ -140,17 +140,13 @@ async def get_current_user(
                 password="-",
             )
             if create_err is not None:
-                raise HTTPException(
-                    status_code=401, detail="No credentials provided"
-                ) from None
+                raise HTTPException(status_code=401, detail="No credentials provided") from None
         # superusers have all privileges
         if user.is_superuser:
             total_scopes.extend(scopes.SCOPES.keys())
         # augment user scopes with permissions associated to local roles
         if len(remote_user.roles) > 0:
-            s = await usr_dbapi.get_user_scopes_from_roles(
-                db_session, user_id=user.id, roles=remote_user.roles
-            )
+            s = await usr_dbapi.get_user_scopes_from_roles(db_session, user_id=user.id, roles=remote_user.roles)
             total_scopes.extend(s)
 
         if user is None:
