@@ -5,9 +5,7 @@
     "**/node_modules/**",
     "**/.git/**",
     "**/.tox/**",
-    "**/*.toml",
     "**/package-lock.json",
-    "**/.github/workflows/**",
     "docker/webapp/patches/**"
   ]
 }
