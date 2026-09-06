@@ -1,6 +1,13 @@
 services:
   webapp:
-    image: docker.io/papermerge/papermerge:3.5.3
+    # Built from upstream docker.io/papermerge/papermerge:3.5.3 with two
+    # core_app patches applied -- see docker/webapp/Dockerfile and
+    # docker/webapp/patches/*.py for what changed and why (fixes a crash on
+    # OIDC tokens carrying a `groups` claim, and adds group/role-to-scope
+    # mapping + a default-role fallback for first-time SSO logins).
+    build:
+      context: ./docker/webapp
+    image: papermerge-webapp:3.5.3-oidc-roles
     restart: unless-stopped
     environment:
       PAPERMERGE__SECURITY__SECRET_KEY: ${PAPERMERGE_SECRET_KEY}
@@ -25,6 +32,10 @@ services:
       PAPERMERGE__AUTH__OIDC_ACCESS_TOKEN_URL: ${PAPERMERGE_OIDC_ACCESS_TOKEN_URL:-}
       PAPERMERGE__AUTH__OIDC_USER_INFO_URL: ${PAPERMERGE_OIDC_USER_INFO_URL:-}
       PAPERMERGE__AUTH__OIDC_INTROSPECT_URL: ${PAPERMERGE_OIDC_INTROSPECT_URL:-}
+      # Name of an existing Papermerge Role to grant as a baseline to any
+      # SSO user who matched no group/role claim (see patches/auth_init.py).
+      # Leave blank to keep the upstream zero-permission-by-default behavior.
+      PAPERMERGE__AUTH__OIDC_DEFAULT_ROLE: ${PAPERMERGE_OIDC_DEFAULT_ROLE:-}
     volumes:
       - media_root:/var/media/pmg
     ports:
