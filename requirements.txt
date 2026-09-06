@@ -1,3 +1,5 @@
 ruff
 tox
 nodeenv
+Pillow
+PyJWT
