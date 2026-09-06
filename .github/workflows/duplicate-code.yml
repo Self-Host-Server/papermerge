@@ -1,0 +1,11 @@
+name: Duplicate Code
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    uses: ./.github/workflows/tox-check-reusable.yml
+    with:
+      tox_env: duplicate-code
